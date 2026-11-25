@@ -132,3 +132,15 @@ jobs:
           gh release view v0.6.79 --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,assets \
             --jq '(.isDraft == false and .isPrerelease == false) and any(.assets[]; .name == "OOS-AOSP-Panels-0.6.79.apk" and .size > 0)' | grep -Fxq true
           gh release edit v0.6.78 --repo "$GITHUB_REPOSITORY" --prerelease
+
+      - name: Promote the tested 0.6.83 APK
+        if: needs.build.outputs.version == '0.6.83' && github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          release=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/v0.6.83")
+          if [[ $(jq -r '.prerelease' <<< "$release") != true ]]; then exit 0; fi
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name')
+          if [[ "$latest" != v0.6.79 ]]; then exit 0; fi
+          jq -e '.draft == false and any(.assets[]; .name == "OOS-AOSP-Panels-0.6.83.apk" and
+            .digest == "sha256:d6dffb1ed43d21de483c9d37da79b9e1a0b8fbea47ae3a2b36a56843d4b4f9c3")' <<< "$release" >/dev/null
+          gh release edit v0.6.83 --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
